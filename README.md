@@ -1,4 +1,6 @@
-# Riot Quiz
+<p align="center">
+  <img src="./assets/header.svg" alt="Riot Quiz" width="100%" />
+</p>
 
 A League of Legends quiz game for Android and iOS, with four ways to guess a champion.
 
