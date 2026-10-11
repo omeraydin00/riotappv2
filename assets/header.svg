@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="260" viewBox="0 0 1200 260" role="img" aria-label="Riot Quiz: A League of Legends quiz with four game modes.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0D1117"/>
+      <stop offset="1" stop-color="#161B22"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.5" r="0.42">
+      <stop offset="0" stop-color="#1F6FEB" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#1F6FEB" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58A6FF"/>
+      <stop offset="1" stop-color="#BC8CFF"/>
+    </linearGradient>
+    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#8B949E" opacity="0.18"/>
+    </pattern>
+    <clipPath id="frame"><rect width="1200" height="260" rx="16"/></clipPath>
+    <style>
+      .mono  { font: 500 15px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; fill: #8B949E; }
+      .name  { font: 700 48px 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #F0F6FC; letter-spacing: -1px; }
+      .meta  { font: 400 18px 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #8B949E; }
+      .stack { font: 500 15px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; fill: url(#accent); }
+      .label { font: 600 14px 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif; fill: #C9D1D9; }
+      .small { font: 600 12px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; fill: #8B949E; }
+      .hub   { font: 700 13px 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace; fill: #F0F6FC; letter-spacing: 1px; }
+      .flow { stroke-dasharray: 6 14; animation: dash 1.2s linear infinite; opacity: 0.55; }
+      @keyframes dash { to { stroke-dashoffset: -40; } }
+      .in { animation: in 0.8s ease-out backwards; }
+      .i1 { animation-delay: 0.05s; } .i2 { animation-delay: 0.2s; } .i3 { animation-delay: 0.35s; } .i4 { animation-delay: 0.5s; }
+      @keyframes in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      
+    </style>
+  </defs>
+
+  <g clip-path="url(#frame)">
+    <rect width="1200" height="260" fill="url(#bg)"/>
+    <rect width="1200" height="260" fill="url(#dots)"/>
+    <rect width="1200" height="260" fill="url(#glow)"/>
+    <rect x="0.75" y="0.75" width="1198.5" height="258.5" rx="15.5" fill="none" stroke="#30363D" stroke-width="1.5"/>
+
+    <text x="64" y="70" class="mono in i1">~/omeraydin00/riotappv2</text>
+    <text x="62" y="130" class="name in i2">Riot Quiz</text>
+    <text x="64" y="172" class="meta in i3">A League of Legends quiz with four game modes.</text>
+    <text x="64" y="212" class="stack in i4">Flutter · Dart</text>
+
+    <rect x="802" y="34" width="308" height="192" rx="14" fill="#161B22" stroke="#30363D" stroke-width="1.5"/>
+    <text x="822" y="62" class="small">Q 3/10</text>
+    <rect x="822" y="74" width="210" height="9" rx="4" fill="#C9D1D9" opacity="0.7"/>
+    <rect x="822" y="90" width="150" height="7" rx="3" fill="#8B949E" opacity="0.45"/>
+    <rect x="822" y="104" width="268" height="4" rx="2" fill="#30363D"/>
+    <rect x="822" y="104" width="268" height="4" rx="2" fill="url(#accent)">
+      <animate attributeName="width" values="268;0;0;268" keyTimes="0;0.7;0.99;1" dur="5s" repeatCount="indefinite"/>
+    </rect>
+    <rect x="822" y="118" width="128" height="38" rx="9" fill="#161B22" stroke="#30363D" stroke-width="1.5"></rect><circle cx="840" cy="137" r="6" fill="none" stroke="#8B949E" stroke-width="1.5"/><rect x="854" y="134" width="70" height="6" rx="3" fill="#8B949E" opacity="0.5"/><rect x="962" y="118" width="128" height="38" rx="9" fill="#161B22" stroke="#30363D" stroke-width="1.5"></rect><circle cx="980" cy="137" r="6" fill="none" stroke="#8B949E" stroke-width="1.5"/><rect x="994" y="134" width="56" height="6" rx="3" fill="#8B949E" opacity="0.5"/><rect x="822" y="168" width="128" height="38" rx="9" fill="#161B22" stroke="#30363D" stroke-width="1.5"></rect><circle cx="840" cy="187" r="6" fill="none" stroke="#8B949E" stroke-width="1.5"/><rect x="854" y="184" width="64" height="6" rx="3" fill="#8B949E" opacity="0.5"/><rect x="962" y="168" width="128" height="38" rx="9" fill="#161B22" stroke="#30363D" stroke-width="1.5"><animate attributeName="fill" values="#161B22;#161B22;#0F2D1A;#0F2D1A;#161B22" keyTimes="0;0.7;0.74;0.95;1" dur="5s" repeatCount="indefinite"/><animate attributeName="stroke" values="#30363D;#30363D;#3FB950;#3FB950;#30363D" keyTimes="0;0.7;0.74;0.95;1" dur="5s" repeatCount="indefinite"/></rect><circle cx="980" cy="187" r="6" fill="none" stroke="#8B949E" stroke-width="1.5"/><rect x="994" y="184" width="74" height="6" rx="3" fill="#8B949E" opacity="0.5"/>
+    <text x="1090" y="62" text-anchor="end" font-weight="700" font-size="16" fill="#3FB950" font-family="Segoe UI, Helvetica Neue, Helvetica, Arial, sans-serif" opacity="0">+10
+      <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.72;0.78;0.92;1" dur="5s" repeatCount="indefinite"/>
+    </text>
+  </g>
+</svg>
