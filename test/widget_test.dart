@@ -1,30 +1,40 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:riotappv2/game_mode.dart';
 import 'package:riotappv2/main.dart';
+import 'package:riotappv2/storage.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(MyApp());
+  testWidgets('Menüde dört mod ve en iyi skor görünüyor', (tester) async {
+    SharedPreferences.setMockInitialValues({'best_characterHunt': 7});
+    await Storage.init();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    tester.view.physicalSize = const Size(1170, 2532); // 390x844, telefon boyutu
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpWidget(const RiotQuizApp());
+    // Test fontu daha geniş olduğu için son kart ekranın altında kalabiliyor
+    await tester.scrollUntilVisible(find.text(GameMode.imageGuess2.title), 200);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    for (final mode in GameMode.values) {
+      expect(find.text(mode.title), findsOneWidget);
+    }
+    expect(find.text('En iyi: 7/10'), findsOneWidget);
+    expect(find.text('Henüz oynanmadı'), findsNWidgets(3));
+  });
+
+  test('Yanlış cevap seriyi sıfırlıyor ama en uzun seri kalıyor', () {
+    final round = QuizRound();
+    round.record(true);
+    round.record(true);
+    round.record(false);
+    round.record(true);
+
+    expect(round.score, 3);
+    expect(round.streak, 1);
+    expect(round.bestStreak, 2);
   });
 }

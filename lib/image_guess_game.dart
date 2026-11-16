@@ -1,213 +1,253 @@
-// Gerekli Flutter kütüphaneleri ve Dart'tan bazı araçları içe aktarıyoruz
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math';
 
-// Oyun widget'ını tanımlıyoruz
-class ImageGuessGame extends StatefulWidget {
-  final bool isDarkMode;
+import 'package:material_ui/material_ui.dart';
 
-  ImageGuessGame({required this.isDarkMode});
+import 'game_mode.dart';
+import 'sounds.dart';
+import 'storage.dart';
+import 'theme.dart';
+import 'widgets/quiz_widgets.dart';
 
-  @override
-  _ImageGuessGameState createState() => _ImageGuessGameState();
-}
+// Resim Tahmini Modu: assets/images içindeki çizimlerden şampiyonu tahmin et
+class ImageGuessGame extends StatelessWidget {
+  const ImageGuessGame({super.key});
 
-// Oyun durumunu yönetmek için bir sınıf tanımlıyoruz
-class _ImageGuessGameState extends State<ImageGuessGame>
-    with SingleTickerProviderStateMixin {
-  List<Map<String, String>> characters = [
-    {'image': 'assets/images/1.png', 'name': 'Thresh'},
-    {'image': 'assets/images/2.png', 'name': 'Yasuo'},
-    {'image': 'assets/images/3.png', 'name': 'Ahri'},
-    {'image': 'assets/images/4.png', 'name': 'Soraka'},
-    {'image': 'assets/images/5.png', 'name': 'Zed'},
-    {'image': 'assets/images/6.png', 'name': 'Teemo'},
-    {'image': 'assets/images/7.png', 'name': 'Riven'},
-    {'image': 'assets/images/8.png', 'name': 'Heimerdinger'},
-    {'image': 'assets/images/9.png', 'name': 'Trundle'},
-    {'image': 'assets/images/10.png', 'name': 'Irelia'},
-    {'image': 'assets/images/11.png', 'name': 'Zoe'},
-    {'image': 'assets/images/12.png', 'name': 'Warwick'},
-    {'image': 'assets/images/13.png', 'name': 'Gragas'},
-    {'image': 'assets/images/14.png', 'name': 'Khazix'},
-    {'image': 'assets/images/15.png', 'name': 'Vayne'},
-    {'image': 'assets/images/16.png', 'name': 'Nami'},
-    {'image': 'assets/images/17.png', 'name': 'Leona'},
-    {'image': 'assets/images/18.png', 'name': 'Shen'},
-    {'image': 'assets/images/19.png', 'name': 'Jhin'},
-    {'image': 'assets/images/20.png', 'name': 'Fiora'},
-    {'image': 'assets/images/21.png', 'name': 'Nunu and Willump'},
-    {'image': 'assets/images/22.png', 'name': 'Malphite'},
-    {'image': 'assets/images/23.png', 'name': 'Evelynn'},
-    {'image': 'assets/images/24.png', 'name': 'Anivia'},
-    {'image': 'assets/images/25.png', 'name': 'Darius'},
-    {'image': 'assets/images/26.png', 'name': 'Lux'},
-    {'image': 'assets/images/27.png', 'name': 'Talon'},
-
+  static const _characters = [
+    PictureQuestion('assets/images/1.jpg', 'Thresh'),
+    PictureQuestion('assets/images/2.jpg', 'Yasuo'),
+    PictureQuestion('assets/images/3.jpg', 'Ahri'),
+    PictureQuestion('assets/images/4.jpg', 'Soraka'),
+    PictureQuestion('assets/images/5.jpg', 'Zed'),
+    PictureQuestion('assets/images/6.jpg', 'Teemo'),
+    PictureQuestion('assets/images/7.jpg', 'Riven'),
+    PictureQuestion('assets/images/8.jpg', 'Heimerdinger'),
+    PictureQuestion('assets/images/9.jpg', 'Trundle'),
+    PictureQuestion('assets/images/10.jpg', 'Irelia'),
+    PictureQuestion('assets/images/11.jpg', 'Zoe'),
+    PictureQuestion('assets/images/12.jpg', 'Warwick'),
+    PictureQuestion('assets/images/13.jpg', 'Gragas'),
+    PictureQuestion('assets/images/14.jpg', "Kha'Zix"),
+    PictureQuestion('assets/images/15.jpg', 'Vayne'),
+    PictureQuestion('assets/images/16.jpg', 'Nami'),
+    PictureQuestion('assets/images/17.jpg', 'Leona'),
+    PictureQuestion('assets/images/18.jpg', 'Shen'),
+    PictureQuestion('assets/images/19.jpg', 'Jhin'),
+    PictureQuestion('assets/images/20.jpg', 'Fiora'),
+    PictureQuestion('assets/images/21.jpg', 'Nunu ve Willump'),
+    PictureQuestion('assets/images/22.jpg', 'Malphite'),
+    PictureQuestion('assets/images/23.jpg', 'Evelynn'),
+    PictureQuestion('assets/images/24.jpg', 'Anivia'),
+    PictureQuestion('assets/images/25.jpg', 'Darius'),
+    PictureQuestion('assets/images/26.jpg', 'Lux'),
+    PictureQuestion('assets/images/27.jpg', 'Talon'),
   ];
 
-  // Cevap seçeneklerini ve diğer oyun değişkenlerini tanımlıyoruz
-  List<String> shuffledAnswers = [];
-  String? correctAnswer;
-  int currentQuestionIndex = 0;
-  int score = 0;
-  late AnimationController _animationController;
-  Map<String, Color> buttonColors = {};
-
-  // Yeni bir soru hazırlama fonksiyonu
-  void _prepareQuestion() {
-    Random random = Random();
-    int correctIndex = random.nextInt(characters.length);
-
-    String correctName = characters[correctIndex]['name']!;
-
-    // Cevap seçeneklerini oluştur
-    List<String> options = [correctName];
-    while (options.length < 4) {
-      String randomName = characters[random.nextInt(characters.length)]['name']!;
-      if (!options.contains(randomName)) {
-        options.add(randomName);
-      }
-    }
-    options.shuffle();
-
-    // Durumu güncelle
-    setState(() {
-      currentQuestionIndex = correctIndex;
-      shuffledAnswers = options;
-      correctAnswer = correctName;
-      buttonColors = {for (var option in options) option: widget.isDarkMode ? Colors.grey[700]! : Colors.deepPurpleAccent.shade100};
-      _animationController.reset();
-      _animationController.forward();
-    });
+  @override
+  Widget build(BuildContext context) {
+    return const PictureQuizScreen(
+      mode: GameMode.imageGuess,
+      questions: _characters,
+      prompt: 'Bu hangi şampiyon?',
+      // Çizimler yatay (16:9), kenarlardan biraz kırpınca ekrana daha iyi oturuyor
+      aspectRatio: 4 / 3,
+    );
   }
+}
 
-  // Cevap kontrol fonksiyonu
-  void _checkAnswer(String selectedAnswer) {
-    setState(() {
-      if (selectedAnswer == correctAnswer) {
-        buttonColors[selectedAnswer] = Colors.green; // Doğru cevap yeşil
-        score++;
-        Future.delayed(Duration(milliseconds: 500), () {
-          _prepareQuestion(); // Yeni soru yükle
-        });
-      } else {
-        buttonColors[selectedAnswer] = Colors.red; // Yanlış cevap kırmızı
-        buttonColors[correctAnswer!] = Colors.green; // Doğru cevabı göster
-        score = 0; // Yanlış cevapta skor sıfırlanır
-        Future.delayed(Duration(milliseconds: 500), () {
-          _prepareQuestion(); // Yeni soru yükle
-        });
-      }
-    });
-  }
+// Bir resim ve doğru cevabı
+class PictureQuestion {
+  const PictureQuestion(this.image, this.answer);
 
+  final String image;
+  final String answer;
+}
 
+// İki Resim Tahmini modunun ortak ekranı. Yanlış şıklar aynı listedeki diğer cevaplardan seçiliyor.
+class PictureQuizScreen extends StatefulWidget {
+  const PictureQuizScreen({
+    super.key,
+    required this.mode,
+    required this.questions,
+    required this.prompt,
+    required this.aspectRatio,
+  });
+
+  final GameMode mode;
+  final List<PictureQuestion> questions;
+  final String prompt;
+  final double aspectRatio;
+
+  @override
+  State<PictureQuizScreen> createState() => _PictureQuizScreenState();
+}
+
+class _PictureQuizScreenState extends State<PictureQuizScreen> {
+  final _random = Random();
+
+  // Eskiden Future.delayed ile sonraki soruya geçiliyordu ve ekrandan çıkılınca
+  // setState çağrılıyordu. Timer'ı tutup dispose'da iptal ediyoruz.
+  Timer? _nextTimer;
+
+  late QuizRound _round;
+  late List<PictureQuestion> _roundQuestions;
+  List<String> _options = [];
+  String? _selected;
+  bool _answered = false;
+
+  bool _finished = false;
+  bool _isNewBest = false;
+
+  PictureQuestion get _current => _roundQuestions[_round.index];
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: Duration(seconds: 1),
-    );
-    _prepareQuestion(); // İlk soruyu hazırla
+    _startRound();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _precacheNext();
   }
 
   @override
   void dispose() {
-    _animationController.dispose(); // Animasyon kontrolcüsünü serbest bırak
+    _nextTimer?.cancel();
     super.dispose();
+  }
+
+  void _startRound() {
+    _nextTimer?.cancel();
+    final total = min(questionsPerRound, widget.questions.length);
+    _round = QuizRound(total: total);
+    _roundQuestions = ([...widget.questions]..shuffle(_random)).take(total).toList();
+    _finished = false;
+    _isNewBest = false;
+    _showQuestion();
+  }
+
+  void _showQuestion() {
+    final correct = _current.answer;
+    final options = {correct};
+    while (options.length < 4) {
+      options.add(widget.questions[_random.nextInt(widget.questions.length)].answer);
+    }
+
+    setState(() {
+      _options = options.toList()..shuffle(_random);
+      _selected = null;
+      _answered = false;
+    });
+    if (mounted && _round.index > 0) _precacheNext();
+  }
+
+  // Sıradaki resmi önceden yükle ki geçişte boş kare görünmesin
+  void _precacheNext() {
+    final next = _round.index + 1;
+    if (next < _roundQuestions.length) {
+      precacheImage(AssetImage(_roundQuestions[next].image), context);
+    }
+  }
+
+  void _answer(String option) {
+    if (_answered) return;
+
+    final correct = option == _current.answer;
+    setState(() {
+      _selected = option;
+      _answered = true;
+      _round.record(correct);
+    });
+    Sounds.answer(correct);
+
+    _nextTimer = Timer(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
+      if (_round.isLastQuestion) {
+        final isNewBest = Storage.saveScore(widget.mode, _round.score);
+        setState(() {
+          _finished = true;
+          _isNewBest = isNewBest;
+        });
+      } else {
+        _round.next();
+        _showQuestion();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Resim Tahmini Modu",style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-        backgroundColor: widget.isDarkMode ? Colors.grey[900] : Colors.deepPurple,
-      ),
-      body: FadeTransition(
-        opacity: _animationController,
-        child: Container(
-          width: MediaQuery.of(context).size.width,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.isDarkMode
-                  ? [Colors.black87, Colors.grey[800]!]
-                  : [Colors.purple.shade900, Colors.deepPurple.shade300],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Skoru göster
-                Text(
-                  'Doğru Sayısı: $score',
-                  style: TextStyle(
-                    color: widget.isDarkMode ? Colors.greenAccent : Colors.green,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+      appBar: AppBar(title: Text(widget.mode.title)),
+      body: _finished
+          ? RoundResultView(
+              round: _round,
+              best: Storage.bestScore(widget.mode) ?? _round.score,
+              isNewBest: _isNewBest,
+              onReplay: _startRound,
+            )
+          : SafeArea(
+              top: false,
+              child: Column(
+                children: [
+                  GameHeader(
+                    round: _round,
+                    progress: (_round.index + (_answered ? 1 : 0)) / _round.total,
                   ),
-                ),
-                SizedBox(height: 20),
-                // Şampiyon resmi
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(15),
-                  child: Image.asset(
-                    characters[currentQuestionIndex]['image']!,
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    height: MediaQuery.of(context).size.width * 0.6,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                SizedBox(height: 20),
-                Text(
-                  'Bu hangi şampiyon?',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: widget.isDarkMode ? Colors.white : Colors.white,
-                  ),
-                ),
-                SizedBox(height: 20),
-                // Cevap butonları
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.center,
-                  children: shuffledAnswers.map((option) {
-                    return SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.4,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          Expanded(child: Center(child: _buildPicture())),
+                          QuestionTitle(widget.prompt),
+                          AnswerList(
+                            options: _options,
+                            correct: _current.answer,
+                            selected: _selected,
+                            answered: _answered,
+                            onSelect: _answer,
                           ),
-                          backgroundColor: buttonColors[option],
-                          foregroundColor: widget.isDarkMode
-                              ? Colors.white
-                              : Colors.deepPurple.shade900,
-                          elevation: 3,
-                          shadowColor: Colors.black45,
-                          textStyle: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        onPressed: () => _checkAnswer(option),
-                        child: Text(option, textAlign: TextAlign.center),
+                          const SizedBox(height: 6),
+                        ],
                       ),
-                    );
-                  }).toList(),
-                ),
-              ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildPicture() {
+    final borderColor = !_answered
+        ? AppColors.goldDim
+        : _selected == _current.answer
+            ? AppColors.correct
+            : AppColors.wrong;
+
+    return AspectRatio(
+      aspectRatio: widget.aspectRatio,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 1.6),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 8))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Image.asset(
+              _current.image,
+              key: ValueKey(_current.image),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
             ),
           ),
         ),

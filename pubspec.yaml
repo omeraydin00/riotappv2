@@ -1,5 +1,5 @@
 name: riotappv2
-description: "A new Flutter project."
+description: "League of Legends quiz game with four modes."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -10,19 +10,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  image_picker: ^0.8.6
-  image: ^3.0.1
-  http: 0.13.6
-
-  cupertino_icons: ^1.0.8
+  http: ^1.6.0
+  image: ^4.13.1
+  shared_preferences: ^2.5.6
+  audioplayers: ^6.8.1
+  material_ui: ^1.11.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/lolquiz.png
     - assets/images/
+    - assets/sounds/

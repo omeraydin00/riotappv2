@@ -1,322 +1,361 @@
-import 'package:flutter/material.dart'; // Flutter materyal paketini içe aktarıyoruz.
-import 'package:http/http.dart' as http; // HTTP istekleri için http paketini içe aktarıyoruz.
-import 'dart:convert'; // JSON verilerini işlemek için gerekli kütüphane.
-import 'dart:typed_data'; // Byte veri türlerini kullanmak için gerekli kütüphane.
-import 'dart:math'; // Rastgele sayılar için gerekli kütüphane.
-import 'package:image/image.dart' as img; // Resim işleme için gerekli kütüphane.
+import 'dart:async';
+import 'dart:math';
 
+import 'package:flutter/foundation.dart';
+import 'package:material_ui/material_ui.dart';
+
+import 'data/ddragon.dart';
+import 'game_mode.dart';
+import 'sounds.dart';
+import 'storage.dart';
+import 'theme.dart';
+import 'widgets/quiz_widgets.dart';
+
+// Resim Mücadelesi: iki şampiyonun bulanık portresi tek resimde, ikiliyi bul.
+// Seri uzadıkça bulanıklık artıyor, yanlış cevapta başa dönüyor.
 class ImageChallengeScreen extends StatefulWidget {
-  final bool isDarkMode;
-
-  ImageChallengeScreen({required this.isDarkMode});
+  const ImageChallengeScreen({super.key});
 
   @override
-  _ImageChallengeScreenState createState() => _ImageChallengeScreenState();
+  State<ImageChallengeScreen> createState() => _ImageChallengeScreenState();
 }
 
-class _ImageChallengeScreenState extends State<ImageChallengeScreen> with SingleTickerProviderStateMixin {
-  List<String> _championImages = []; // Şampiyon resimlerini tutan liste.
-  List<String> _championNames = []; // Şampiyon isimlerini tutan liste.
-  Uint8List? _combinedImageBytes; // Birleşik resim verileri.
-  String? _correctAnswer; // Doğru cevap.
-  List<String> _answerOptions = []; // Cevap seçeneklerini tutan liste.
-  String? _selectedAnswer; // Kullanıcının seçtiği cevap.
-  bool _isAnswerCorrect = false; // Cevabın doğru olup olmadığını kontrol eden bayrak.
-  bool _isButtonEnabled = true; // Buton durumunu kontrol eden bayrak.
-  int _difficultyLevel = 1; // Başlangıç zorluk seviyesi
-  int _correctAnswersCount = 0; // Doğru cevap sayısı
+class _ChallengeQuestion {
+  const _ChallengeQuestion(this.image, this.correct, this.options, this.level);
 
-  // Buton animasyon kontrolörü ve animasyon değişkenleri
-  late AnimationController _buttonController;
+  final Uint8List image;
+  final String correct;
+  final List<String> options;
+  final int level; // bulanıklık seviyesi, 1'den başlar
+}
+
+class _ImageChallengeScreenState extends State<ImageChallengeScreen> {
+  final _random = Random();
+
+  List<Champion> _champions = [];
+  String? _error; // null değilse hata ekranı gösteriliyor
+
+  late QuizRound _round;
+  _ChallengeQuestion? _question; // null iken resim hazırlanıyor
+  Future<_ChallengeQuestion>? _pending;
+  String? _selected;
+  bool _answered = false;
+
+  bool _finished = false;
+  bool _isNewBest = false;
+
+  // Eskiden Future.delayed + setState vardı; ekrandan çıkınca hata veriyordu.
+  Timer? _nextTimer;
+  // Tekrar oyna'ya basılınca eski turdan gelen geç cevapları yok saymak için
+  int _generation = 0;
 
   @override
   void initState() {
     super.initState();
-    _fetchChampionImages(); // Şampiyon resimlerini yükle.
-
-    // Buton animasyon kontrolörü
-    _buttonController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-  }
-
-  // Şampiyon resimlerini API'den yükleyen fonksiyon
-  Future<void> _fetchChampionImages() async {
-    final response = await http.get(Uri.parse(
-        'https://ddragon.leagueoflegends.com/cdn/12.19.1/data/en_US/champion.json'));
-
-    if (response.statusCode == 200) {
-      Map<String, dynamic> data = json.decode(response.body);
-      data['data'].forEach((key, value) {
-        String imageUrl =
-            'https://ddragon.leagueoflegends.com/cdn/12.19.1/img/champion/${value['id']}.png';
-        _championImages.add(imageUrl); // Resim URL'sini listeye ekle.
-        _championNames.add(value['name']); // Şampiyon adını listeye ekle.
-      });
-      setState(() {
-        _combineImages(); // Resimleri birleştir.
-      });
-    } else {
-      throw Exception('Şampiyon resimleri yüklenemedi');
-    }
-  }
-
-  // İki şampiyon resmini birleştiren fonksiyon
-  Future<void> _combineImages() async {
-    if (_championImages.length < 2) return; // Yeterli resim yoksa çık.
-
-    Random random = Random();
-    int index1 = random.nextInt(_championImages.length); // Rastgele ilk resim indeksi.
-    int index2 = random.nextInt(_championImages.length); // Rastgele ikinci resim indeksi.
-
-    // Aynı resim olmaması için kontrol et.
-    while (index1 == index2) {
-      index2 = random.nextInt(_championImages.length);
-    }
-
-    String imageUrl1 = _championImages[index1]; // İlk resim URL'si.
-    String imageUrl2 = _championImages[index2]; // İkinci resim URL'si.
-    String name1 = _championNames[index1]; // İlk şampiyon adı.
-    String name2 = _championNames[index2]; // İkinci şampiyon adı.
-
-    // Resimleri indir.
-    final response1 = await http.get(Uri.parse(imageUrl1));
-    final response2 = await http.get(Uri.parse(imageUrl2));
-
-    img.Image? image1 = img.decodeImage(response1.bodyBytes); // İlk resmi decode et.
-    img.Image? image2 = img.decodeImage(response2.bodyBytes); // İkinci resmi decode et.
-
-    if (image1 != null && image2 != null) {
-      // Zorluk seviyesine göre bulanıklığı artır
-      int blurAmount = 2 + _difficultyLevel; // 2 başlangıç, her doğru cevapta artacak
-      img.Image blurredImage1 = img.gaussianBlur(image1, blurAmount); // İlk resmi bulanıklaştır.
-      img.Image blurredImage2 = img.gaussianBlur(image2, blurAmount); // İkinci resmi bulanıklaştır.
-
-      int width = max(blurredImage1.width, blurredImage2.width); // Genişlik.
-      int height = max(blurredImage1.height, blurredImage2.height); // Yükseklik.
-
-      img.Image combinedImage = img.Image(width, height); // Birleşik resmi oluştur.
-      combinedImage.fill(0xFFFFFFFF); // Arka planı beyaz yap.
-
-      // Piksel piksel karıştırma işlemi
-      double mixRatio = 0.4;
-      for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-          int color1 = (x < blurredImage1.width && y < blurredImage1.height) ? blurredImage1.getPixel(x, y) : 0xFFFFFFFF;
-          int color2 = (x < blurredImage2.width && y < blurredImage2.height) ? blurredImage2.getPixel(x, y) : 0xFFFFFFFF;
-          int mixedColor = _mixColors(color1, color2, mixRatio); // Üçüncü argümanı ekle
-          combinedImage.setPixel(x, y, mixedColor); // Birleşik resme piksel ekle
-        }
-      }
-
-
-      _combinedImageBytes = Uint8List.fromList(img.encodePng(combinedImage)); // Birleşik resmi byte dizisine çevir.
-      setState(() {
-        _correctAnswer = '$name1 - $name2'; // Doğru cevabı ayarla.
-        _buildAnswerOptions(name1, name2); // Cevap seçeneklerini oluştur.
-        _selectedAnswer = null; // Seçilen cevabı sıfırla.
-        _isAnswerCorrect = false; // Cevap durumunu sıfırla.
-      });
-    }
-  }
-
-  // İki rengi karıştıran fonksiyon
-  int _mixColors(int color1, int color2, double ratio) {
-    // Renk bileşenlerini al
-    int r1 = img.getRed(color1);
-    int g1 = img.getGreen(color1);
-    int b1 = img.getBlue(color1);
-    int a1 = img.getAlpha(color1); // Alpha bileşeni
-
-    int r2 = img.getRed(color2);
-    int g2 = img.getGreen(color2);
-    int b2 = img.getBlue(color2);
-    int a2 = img.getAlpha(color2); // Alpha bileşeni
-
-    // Karıştırma oranını sınırlandır
-    ratio = ratio.clamp(0.0, 1.0); // 0.0 ile 1.0 arasında sınırla
-
-    // Renk bileşenlerini karıştır
-    int r = ((r1 * (1 - ratio) + r2 * ratio)).round().clamp(0, 255);
-    int g = ((g1 * (1 - ratio) + g2 * ratio)).round().clamp(0, 255);
-    int b = ((b1 * (1 - ratio) + b2 * ratio)).round().clamp(0, 255);
-    int a = ((a1 * (1 - ratio) + a2 * ratio)).round().clamp(0, 255); // Alpha karışımı
-
-    return img.getColor(r, g, b, a); // Karıştırılmış rengi döndür.
-  }
-
-
-  // Cevap seçeneklerini oluşturan fonksiyon
-  void _buildAnswerOptions(String name1, String name2) {
-    _answerOptions = []; // Cevap seçeneklerini sıfırla.
-    _answerOptions.add(_correctAnswer!); // Doğru cevabı ekle.
-
-    Random random = Random();
-    while (_answerOptions.length < 4) { // 4 seçenek olana kadar döngü.
-      String randomName1 = _championNames[random.nextInt(_championNames.length)]; // Rastgele ilk şampiyon adı.
-      String randomName2 = _championNames[random.nextInt(_championNames.length)]; // Rastgele ikinci şampiyon adı.
-
-      // Seçenekler arasında tekrar yoksa ekle.
-      if (randomName1 != randomName2 && !_answerOptions.contains('$randomName1 - $randomName2')) {
-        _answerOptions.add('$randomName1 - $randomName2');
-      }
-    }
-
-    _answerOptions.shuffle(); // Seçenekleri karıştır.
-  }
-
-  // Cevabı kontrol eden fonksiyon
-  void _checkAnswer(String selectedAnswer) {
-    if (!_isButtonEnabled) return; // Butonlar devre dışıysa çık.
-
-    setState(() {
-      _selectedAnswer = selectedAnswer; // Seçilen cevabı ayarla.
-      _isAnswerCorrect = selectedAnswer == _correctAnswer; // Cevabın doğru olup olmadığını kontrol et.
-
-      // Buton animasyonunu başlat
-      _buttonController.forward().then((_) {
-        _buttonController.reverse();
-      });
-
-      // Butonları devre dışı bırak
-      _isButtonEnabled = false;
-
-      if (_isAnswerCorrect) {
-        _correctAnswersCount++; // Doğru cevap sayısını artır
-        _difficultyLevel++; // Zorluk seviyesini artır
-      } else {
-        _correctAnswersCount = 0; // Yanlış cevap verildiğinde sayaç sıfırlanır
-        _difficultyLevel = 1; // Zorluk seviyesi sıfırlanır
-      }
-    });
-
-    // 3 saniye bekledikten sonra yeni girdiye izin ver
-    Future.delayed(Duration(seconds: 3), () {
-      setState(() {
-        _isButtonEnabled = true; // Butonları yeniden etkinleştir.
-      });
-
-      // Eğer cevap doğruysa, beklemeden sonra yeni bir soru yükle
-      if (_isAnswerCorrect) {
-        _combineImages(); // Yeni resim kombinasyonu oluştur.
-      } else {
-        // Yanlış cevap verildiğinde yeni bir soru yükle
-        _combineImages(); // Yeni resim kombinasyonu oluştur.
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: widget.isDarkMode ? Colors.blueGrey[900] : Colors.blue[800], // Arka planı gradyanla uyumlu yap
-      appBar: AppBar(
-        title: Text('Resim Mücadelesi', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-        backgroundColor: widget.isDarkMode ? Colors.blueGrey[900] : Colors.blueAccent,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: widget.isDarkMode
-                ? [Colors.blueGrey[900]!, Colors.blueGrey[700]!]
-                : [Colors.blue[800]!, Colors.blue[400]!],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SingleChildScrollView( // Kaydırılabilir içerik
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_combinedImageBytes != null) ...[ // Eğer birleşik resim varsa
-                  Image.memory(
-                    _combinedImageBytes!,
-                    fit: BoxFit.contain,
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    height: MediaQuery.of(context).size.height * 0.4,
-                  ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Tahmin Et: Hangi İkili?', // Soruyu göster
-                    style: TextStyle(
-                      fontSize: 24,
-                      color: widget.isDarkMode ? Colors.white70 : Colors.white,
-                      fontWeight: FontWeight.bold,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 5.0,
-                          color: Colors.black,
-                          offset: Offset(0.0, 0.0),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 1),
-                  // Sayaç değeri burada gösterilir
-                  Text(
-                    'Doğru Cevap Sayısı: $_correctAnswersCount',
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: widget.isDarkMode ? Colors.white70 : Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 1),
-                  Column(
-                    children: _answerOptions.map((option) { // Cevap seçeneklerini göster
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ScaleTransition(
-                          scale: Tween<double>(
-                            begin: 1.0,
-                            end: _isAnswerCorrect && _selectedAnswer == option ? 1.2 : 1.1,
-                          ).animate(
-                            CurvedAnimation(
-                              parent: _buttonController,
-                              curve: Curves.easeInOut,
-                            ),
-                          ),
-                          child: ElevatedButton(
-                            onPressed: _isButtonEnabled ? () => _checkAnswer(option) : null, // Buton devre dışıysa tıklama
-                            child: Text(
-                              option,
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                              backgroundColor: _selectedAnswer == option
-                                  ? (_isAnswerCorrect ? Colors.green : Colors.red)
-                                  : widget.isDarkMode ? Colors.blueGrey[600] : Colors.blueAccent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
-                              ),
-                              elevation: 5,
-                              shadowColor: Colors.black54,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: 20),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    _round = QuizRound();
+    _loadChampions();
   }
 
   @override
   void dispose() {
-    _buttonController.dispose(); // Kontrolörü serbest bırak
+    _nextTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadChampions() async {
+    setState(() => _error = null);
+    try {
+      _champions = await DDragon.champions();
+      if (!mounted) return;
+      _startRound();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Şampiyon listesi indirilemedi.');
+    }
+  }
+
+  void _startRound() {
+    _nextTimer?.cancel();
+    _generation++;
+    setState(() {
+      _round = QuizRound();
+      _finished = false;
+      _isNewBest = false;
+    });
+    _loadQuestion(_buildQuestion(level: 1));
+  }
+
+  // Resim hazır olunca ekrana koyar, hata olursa tekrar dene ekranı çıkar
+  Future<void> _loadQuestion(Future<_ChallengeQuestion> future) async {
+    final generation = _generation;
+    setState(() {
+      _question = null;
+      _selected = null;
+      _answered = false;
+      _error = null;
+    });
+    try {
+      final question = await future;
+      if (!mounted || generation != _generation) return;
+      setState(() => _question = question);
+    } catch (_) {
+      // İndirme ya da resim işleme hatası; ikisinde de tekrar denemek yeterli
+      if (!mounted || generation != _generation) return;
+      setState(() => _error = 'Portreler indirilemedi.');
+    }
+  }
+
+  Future<_ChallengeQuestion> _buildQuestion({required int level}) async {
+    final first = _champions[_random.nextInt(_champions.length)];
+    Champion second;
+    do {
+      second = _champions[_random.nextInt(_champions.length)];
+    } while (second.id == first.id);
+
+    final bytes = await Future.wait([DDragon.portrait(first), DDragon.portrait(second)]);
+    // Ağır kısım: mobilde ayrı isolate'te çalışıyor
+    final blended = await compute(blendPortraits, BlendJob(bytes[0], bytes[1], 4 + level * 2));
+
+    final correct = _pairLabel(first, second);
+    return _ChallengeQuestion(blended, correct, _buildOptions(first, second), level);
+  }
+
+  String _pairLabel(Champion a, Champion b) => '${a.name} - ${b.name}';
+
+  // Şıklardan biri doğru ikiliden bir şampiyonu içeriyor, kalanlar rastgele.
+  // "A - B" ile "B - A" aynı ikili sayılıyor, eskiden ikisi birden şıklarda çıkabiliyordu.
+  List<String> _buildOptions(Champion first, Champion second) {
+    final seen = <String>{_pairKey(first, second)};
+    final options = [_pairLabel(first, second)];
+
+    Champion pick() => _champions[_random.nextInt(_champions.length)];
+
+    while (options.length < 4) {
+      final a = options.length == 1 ? (_random.nextBool() ? first : second) : pick();
+      final b = pick();
+      if (a.id == b.id || !seen.add(_pairKey(a, b))) continue;
+      options.add(_random.nextBool() ? _pairLabel(a, b) : _pairLabel(b, a));
+    }
+    return options..shuffle(_random);
+  }
+
+  String _pairKey(Champion a, Champion b) => ([a.id, b.id]..sort()).join('|');
+
+  void _answer(String option) {
+    final question = _question;
+    if (_answered || question == null) return;
+
+    final correct = option == question.correct;
+    setState(() {
+      _selected = option;
+      _answered = true;
+      _round.record(correct);
+    });
+    Sounds.answer(correct);
+
+    // Kullanıcı cevabı görürken sıradaki resmi hazırlamaya başla
+    if (!_round.isLastQuestion) {
+      _pending = _buildQuestion(level: 1 + _round.streak);
+      _pending!.ignore(); // hatayı _loadQuestion yakalıyor
+    }
+
+    _nextTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (!mounted) return;
+      if (_round.isLastQuestion) {
+        final isNewBest = Storage.saveScore(GameMode.imageChallenge, _round.score);
+        setState(() {
+          _finished = true;
+          _isNewBest = isNewBest;
+        });
+      } else {
+        _round.next();
+        _loadQuestion(_pending!);
+      }
+    });
+  }
+
+  void _retry() {
+    if (_champions.isEmpty) {
+      _loadChampions();
+    } else {
+      _loadQuestion(_buildQuestion(level: 1 + _round.streak));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget body;
+    if (_error != null) {
+      body = _ErrorView(message: _error!, onRetry: _retry);
+    } else if (_finished) {
+      body = RoundResultView(
+        round: _round,
+        best: Storage.bestScore(GameMode.imageChallenge) ?? _round.score,
+        isNewBest: _isNewBest,
+        onReplay: _startRound,
+      );
+    } else {
+      body = _buildGame();
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: Text(GameMode.imageChallenge.title)),
+      body: body,
+    );
+  }
+
+  Widget _buildGame() {
+    final question = _question;
+    return SafeArea(
+      top: false,
+      child: Column(
+        children: [
+          GameHeader(
+            round: _round,
+            progress: (_round.index + (_answered ? 1 : 0)) / _round.total,
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  Expanded(child: Center(child: _buildPicture(question))),
+                  const QuestionTitle('Tahmin et: hangi ikili?'),
+                  if (question != null)
+                    AnswerList(
+                      options: question.options,
+                      correct: question.correct,
+                      selected: _selected,
+                      answered: _answered,
+                      onSelect: _answer,
+                    )
+                  else
+                    // Resim gelene kadar şıkların yerini koru, ekran zıplamasın
+                    Column(
+                      children: [
+                        for (var i = 0; i < 4; i++)
+                          Container(
+                            height: 54,
+                            margin: const EdgeInsets.only(bottom: 10),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+                            ),
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 6),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPicture(_ChallengeQuestion? question) {
+    final borderColor = !_answered || question == null
+        ? AppColors.goldDim
+        : _selected == question.correct
+            ? AppColors.correct
+            : AppColors.wrong;
+
+    return AspectRatio(
+      aspectRatio: 1,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderColor, width: 1.6),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 24, offset: const Offset(0, 8))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: question == null
+              ? const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 3)),
+                      SizedBox(height: 14),
+                      Text('Portreler karıştırılıyor...', style: TextStyle(color: AppColors.muted)),
+                    ],
+                  ),
+                )
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.memory(
+                      question.image,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.medium,
+                      gaplessPlayback: true,
+                    ),
+                    Positioned(
+                      left: 12,
+                      top: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: AppColors.background.withValues(alpha: 0.75),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.blur_on, size: 16, color: AppColors.gold),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Bulanıklık ${question.level}',
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.muted),
+            const SizedBox(height: 16),
+            Text(message, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            const Text(
+              'Bu mod resimleri Riot\'un sunucusundan çekiyor. İnternet bağlantını kontrol edip tekrar dene.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.muted, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Tekrar dene'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -1,324 +1,205 @@
-// Gerekli Flutter kütüphanelerini ve diğer ekranları içe aktarıyoruz
-import 'package:flutter/material.dart';
-import 'image_challenge_screen.dart';
+import 'package:material_ui/material_ui.dart';
+
 import 'character_hunt_screen.dart';
+import 'game_mode.dart';
+import 'image_challenge_screen.dart';
 import 'image_guess_game.dart';
 import 'image_guess_game2.dart';
+import 'storage.dart';
+import 'theme.dart';
 
-// Uygulamayı başlatmak için ana fonksiyon
-void main() {
-  runApp(MyApp()); // MyApp widget'ını çalıştır
-}
-
-// Ana uygulama widget'ı (StatefulWidget) tanımlanıyor
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState(); // Uygulamanın durum yönetimini tanımlayan sınıf çağrılıyor
-}
-
-// Uygulamanın durumunu yöneten sınıf
-class _MyAppState extends State<MyApp> {
-  bool isDarkMode = false; // Karanlık modun açık olup olmadığını belirten değişken
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      // Uygulama için açık tema ayarları
-      theme: ThemeData(
-        primarySwatch: Colors.blue, // Ana renk teması mavi
-        scaffoldBackgroundColor: Colors.blue[100], // Arka plan rengi
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.blue[800], // Uygulama çubuğu rengi
-        ),
-      ),
-      // Uygulama için karanlık tema ayarları
-      darkTheme: ThemeData(
-        brightness: Brightness.dark, // Tema parlaklığı karanlık
-        primarySwatch: Colors.blue, // Ana renk teması mavi
-        scaffoldBackgroundColor: Colors.grey[900], // Karanlık arka plan rengi
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.blueGrey[900], // Uygulama çubuğu rengi
-        ),
-      ),
-      // Kullanıcı seçimine göre tema modunu belirler
-      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-      // Ana menü widget'ını yükler
-      home: MainMenu(
-        isDarkMode: isDarkMode,
-        // Tema değiştirme işlevi
-        onThemeToggle: () {
-          setState(() {
-            isDarkMode = !isDarkMode; // Tema modunu tersine çevir
-          });
-        },
-      ),
-    );
-  }
-}
-
-// Ana menü widget'ı
+// Ana menü: her mod için bir kart ve o modun en iyi skoru
 class MainMenu extends StatefulWidget {
-  final bool isDarkMode; // Karanlık modun açık olup olmadığını belirler
-  final VoidCallback onThemeToggle; // Tema değiştirme işlevini alır
-
-  MainMenu({required this.isDarkMode, required this.onThemeToggle}); // Ana menü için yapılandırıcı
+  const MainMenu({super.key});
 
   @override
-  _MainMenuState createState() => _MainMenuState(); // Ana menünün durumunu yöneten sınıf
+  State<MainMenu> createState() => _MainMenuState();
 }
 
-// Ana menü durum yönetimi
 class _MainMenuState extends State<MainMenu> {
-  // Her bir butonun animasyon ölçek faktörlerini tutar
-  double _scaleFactor1 = 1.0;
-  double _scaleFactor2 = 1.0;
-  double _scaleFactor3 = 1.0;
-  double _scaleFactor4 = 1.0;
+  bool _soundOn = Storage.soundOn;
+
+  Widget _screenFor(GameMode mode) => switch (mode) {
+        GameMode.imageChallenge => const ImageChallengeScreen(),
+        GameMode.characterHunt => const CharacterHuntScreen(),
+        GameMode.imageGuess => const ImageGuessGame(),
+        GameMode.imageGuess2 => const ImageGuessGame2(),
+      };
+
+  Future<void> _open(GameMode mode) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => _screenFor(mode)));
+    // Dönünce yeni rekor varsa kartta görünsün
+    if (mounted) setState(() {});
+  }
+
+  void _toggleSound() {
+    setState(() => _soundOn = !_soundOn);
+    Storage.soundOn = _soundOn;
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Ana ekranın arka plan rengini ayarla
-      backgroundColor: widget.isDarkMode ? Colors.grey[900] : Colors.blue[900],
-      appBar: AppBar(
-        // Uygulama çubuğu başlığı
-        title: Text(
-          'League of Legends Quiz',
-          style: TextStyle(
-            fontWeight: FontWeight.bold, // Yazı kalınlığı
-            fontSize: 26, // Yazı boyutu
-            shadows: [
-              Shadow(
-                offset: Offset(1, 1), // Gölgenin yatay ve dikey uzaklığı
-                blurRadius: 3, // Gölgenin bulanıklığı
-                color: Colors.black54, // Gölgenin rengi
-              ),
-            ],
+      body: Container(
+        decoration: const BoxDecoration(
+          // Üstte hafif bir altın parıltı, gerisi düz lacivert
+          gradient: RadialGradient(
+            center: Alignment(0, -1.1),
+            radius: 1.1,
+            colors: [Color(0xFF1B2B4D), AppColors.background],
           ),
         ),
-        // Sağ üst köşede tema değiştirme düğmesi
-        actions: [
-          IconButton(
-            icon: Icon(
-              widget.isDarkMode ? Icons.light_mode : Icons.dark_mode, // İkonu tema moduna göre seç
-              color: widget.isDarkMode ? Colors.white : Colors.black, // İkon rengi
-            ),
-            onPressed: widget.onThemeToggle, // Tema değiştirme işlevini çağır
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        // Ana içeriği kaydırılabilir yap
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // İçerik minimum boyutta olacak şekilde ayarlanır
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
-              SizedBox(height: 1), // Boşluk
-              // Uygulama logosunu gösterir
-              Image.asset(
-                'assets/images/lolquiz.png',
-                width: 300,
-                height: 300,
-              ),
-              SizedBox(height: 1), // Boşluk
-              // Hoş geldin mesajını gösterir
-              Text(
-                'Hoş Geldin!',
-                style: TextStyle(
-                  fontSize: 35, // Yazı boyutu
-                  color: Colors.white, // Yazı rengi
-                  fontWeight: FontWeight.bold, // Yazı kalınlığı
-                  letterSpacing: 2, // Harfler arasındaki boşluk
-                  shadows: [
-                    Shadow(
-                      offset: Offset(2, 2), // Gölge uzaklığı
-                      blurRadius: 6, // Gölge bulanıklığı
-                      color: Colors.black87, // Gölge rengi
-                    ),
-                  ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: IconButton(
+                  tooltip: _soundOn ? 'Sesi kapat' : 'Sesi aç',
+                  onPressed: _toggleSound,
+                  icon: Icon(
+                    _soundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    color: AppColors.muted,
+                  ),
                 ),
               ),
-              SizedBox(height: 20), // Boşluk
-              // Resim Mücadelesi düğmesi
-              _buildAnimatedButton(
-                context,
-                'Resim Mücadelesi',
-                Colors.blue,
-                Colors.lightBlueAccent,
-                Icons.image,
-                // Tıklama işlevi
-                    () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ImageChallengeScreen(
-                        isDarkMode: widget.isDarkMode,
-                      ),
-                    ),
-                  );
-                },
-                scaleFactor: _scaleFactor1,
-                onScaleChanged: (scale) {
-                  setState(() {
-                    _scaleFactor1 = scale; // Ölçek faktörünü güncelle
-                  });
-                },
+              Center(
+                child: Image.asset('assets/images/lolquiz.png', width: 148, height: 148),
               ),
-              SizedBox(height: 20),
-              // Karakter Avı düğmesi
-              _buildAnimatedButton(
-                context,
-                'Karakter Avı',
-                Colors.teal,
-                Colors.greenAccent,
-                Icons.person_search,
-                    () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CharacterHuntScreen(
-                        isDarkMode: widget.isDarkMode,
-                      ),
-                    ),
-                  );
-                },
-                scaleFactor: _scaleFactor2,
-                onScaleChanged: (scale) {
-                  setState(() {
-                    _scaleFactor2 = scale; // Ölçek faktörünü güncelle
-                  });
-                },
+              const SizedBox(height: 12),
+              const Text(
+                'Şampiyonları ne kadar tanıyorsun?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.cream),
               ),
-              SizedBox(height: 20),
-              // Resim Tahmini düğmesi
-              _buildAnimatedButton(
-                context,
-                'Resim Tahmini Modu',
-                Colors.orange,
-                Colors.yellowAccent,
-                Icons.quiz,
-                    () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ImageGuessGame(
-                        isDarkMode: widget.isDarkMode,
-                      ),
-                    ),
-                  );
-                },
-                scaleFactor: _scaleFactor3,
-                onScaleChanged: (scale) {
-                  setState(() {
-                    _scaleFactor3 = scale; // Ölçek faktörünü güncelle
-                  });
-                },
+              const SizedBox(height: 6),
+              const Text(
+                'Dört mod, her turda $questionsPerRound soru.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 15, color: AppColors.muted),
               ),
-              SizedBox(height: 20),
-              // Resim Tahmini Modu 2 düğmesi
-              _buildAnimatedButton(
-                context,
-                'Resim Tahmini Modu 2',
-                Colors.purple,
-                Colors.deepPurpleAccent,
-                Icons.people,
-                    () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ImageGuessGame2(
-                        isDarkMode: widget.isDarkMode,
-                      ),
-                    ),
-                  );
-                },
-                scaleFactor: _scaleFactor4,
-                onScaleChanged: (scale) {
-                  setState(() {
-                    _scaleFactor4 = scale; // Ölçek faktörünü güncelle
-                  });
-                },
+              const SizedBox(height: 28),
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 10),
+                child: Text(
+                  'MODLAR',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                    color: AppColors.gold,
+                  ),
+                ),
               ),
+              for (final mode in GameMode.values)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ModeCard(
+                    mode: mode,
+                    best: Storage.bestScore(mode),
+                    onTap: () => _open(mode),
+                  ),
+                ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  // Animasyonlu düğme oluşturma fonksiyonu
-  Widget _buildAnimatedButton(
-      BuildContext context,
-      String title,
-      Color startColor,
-      Color endColor,
-      IconData icon,
-      VoidCallback onPressed, {
-        required double scaleFactor,
-        required Function(double) onScaleChanged,
-      }) {
-    final isDarkMode = widget.isDarkMode;
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({required this.mode, required this.best, required this.onTap});
 
-    // Karanlık modda özel renkler
-    final darkStartColor = Colors.grey[800];
-    final darkEndColor = Colors.grey[700];
+  final GameMode mode;
+  final int? best;
+  final VoidCallback onTap;
 
-    return GestureDetector(
-      onTapDown: (_) => onScaleChanged(0.95), // Tıklandığında küçült
-      onTapUp: (_) => onScaleChanged(1.0), // Bırakıldığında normale dön
-      onTapCancel: () => onScaleChanged(1.0), // İptal edildiğinde normale dön
-      child: Transform.scale(
-        scale: scaleFactor, // Ölçeklendirme
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isDarkMode
-                  ? [darkStartColor!, darkEndColor!]
-                  : [startColor, endColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(30), // Yuvarlak köşeler
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: onPressed, // Düğme işlevi
-            style: ElevatedButton.styleFrom(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 16), // Düğme boyutlandırması
-              backgroundColor: Colors.transparent, // Arka plan rengi
-              shadowColor: Colors.transparent, // Gölge rengi
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30), // Yuvarlatılmış köşeler
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon, // Düğmenin simgesi
-                  size: 22,
-                  color: Colors.white,
-                ),
-                SizedBox(width: 10),
-                Text(
-                  title, // Düğmenin metni
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        splashColor: AppColors.gold.withValues(alpha: 0.1),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppColors.goldDim),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.surfaceHigh, AppColors.background],
                   ),
                 ),
-              ],
-            ),
+                child: Icon(mode.icon, color: AppColors.gold, size: 26),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      mode.title,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.cream),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      mode.description,
+                      style: const TextStyle(fontSize: 13.5, color: AppColors.muted, height: 1.3),
+                    ),
+                    const SizedBox(height: 8),
+                    _BestBadge(best: best),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.goldDim),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BestBadge extends StatelessWidget {
+  const _BestBadge({required this.best});
+
+  final int? best;
+
+  @override
+  Widget build(BuildContext context) {
+    final played = best != null;
+    return Row(
+      children: [
+        Icon(
+          played ? Icons.emoji_events_rounded : Icons.emoji_events_outlined,
+          size: 15,
+          color: played ? AppColors.gold : AppColors.muted,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          played ? 'En iyi: $best/$questionsPerRound' : 'Henüz oynanmadı',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w600,
+            color: played ? AppColors.gold : AppColors.muted,
+          ),
+        ),
+      ],
     );
   }
 }
